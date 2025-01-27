@@ -1,0 +1,397 @@
+
+
+{% extends "base.html" %}
+
+{% block title %}Tasks{% endblock %}
+
+{% block navbar %}
+<div class="flex items-center gap-4">
+    <span class="text-white" id="user-info"></span>
+    <a href="{% url 'login' %}" id="logout" class="text-white px-4 py-2 bg-red-500 rounded hover:bg-red-600">Logout</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">Task List</h2>
+        <button id="create-task" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+            Create Task
+        </button>
+    </div>
+
+    <!-- Task filters -->
+    <div class="mb-6 flex gap-4">
+        <select id="status-filter" class="px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500">
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+        </select>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="loading" class="hidden text-center py-4">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+    </div>
+
+    <!-- Task list container -->
+    <div id="task-list" class="space-y-4"></div>
+
+    <!-- No tasks message -->
+    <div id="no-tasks" class="hidden text-center py-8 text-gray-500">
+        No tasks found.
+    </div>
+    <div id="create-task-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Create Task</h3>
+            <form id="create-task-form">
+                <div class="mb-4">
+                    <label for="task-title" class="block text-sm font-medium text-gray-700">Title</label>
+                    <input type="text" id="task-title" class="mt-1 px-3 py-2 border rounded w-full" required>
+                </div>
+                <div class="mb-4">
+                    <label for="task-description" class="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea id="task-description" class="mt-1 px-3 py-2 border rounded w-full" rows="3"></textarea>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" id="cancel-task" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                        Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Edit Task Modal -->
+    <div id="edit-task-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+            <h2 class="text-xl font-bold mb-4">Edit Task</h2>
+            <form id="edit-task-form">
+                <div class="mb-4">
+                    <label for="edit-task-title" class="block text-sm font-medium text-gray-700">Title</label>
+                    <input type="text" id="edit-task-title" name="title" class="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="mb-4">
+                    <label for="edit-task-description" class="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea id="edit-task-description" name="description" class="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="edit-task-status" class="block text-sm font-medium text-gray-700">Status</label>
+                    <select id="edit-task-status" name="is_done" class="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500">
+                        <option value="false">Pending</option>
+                        <option value="true">Completed</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" id="cancel-edit-task" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// Check authentication on page load
+document.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+        window.location.href = "{% url 'login' %}";
+        return;
+    }
+
+    // Display user info
+    const username = localStorage.getItem('username');
+    const role = localStorage.getItem('userRole');
+    document.getElementById('user-info').textContent = `${username} (${role})`;
+
+    // Load tasks
+    loadTasks();
+
+    // Add event listeners
+    document.getElementById('status-filter').addEventListener('change', loadTasks);
+});
+
+// Load tasks function
+async function loadTasks() {
+    const loading = document.getElementById('loading');
+    const taskList = document.getElementById('task-list');
+    const noTasks = document.getElementById('no-tasks');
+    
+    loading.classList.remove('hidden');
+    taskList.innerHTML = '';
+    noTasks.classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/tasks/', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = "{% url 'login' %}";
+                return;
+            }
+            throw new Error('Failed to fetch tasks');
+        }
+
+        const tasks = await response.json();
+        const statusFilter = document.getElementById('status-filter').value;
+
+        const filteredTasks = tasks.filter(task => {
+            if (statusFilter === 'all') return true;
+            if (statusFilter === 'completed') return task.is_done;
+            if (statusFilter === 'pending') return !task.is_done;
+            return true;
+        });
+
+        if (filteredTasks.length === 0) {
+            noTasks.classList.remove('hidden');
+        } else {
+            filteredTasks.forEach(task => taskList.appendChild(createTaskElement(task)));
+        }
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+        alert('Error loading tasks. Please try again.');
+    } finally {
+        loading.classList.add('hidden');
+    }
+}
+
+// Create task element function
+function createTaskElement(task) {
+    const div = document.createElement('div');
+    div.className = 'bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow';
+    
+    const userRole = localStorage.getItem('userRole');
+    const userId = localStorage.getItem('userId');
+    const canEdit = userRole === 'lead' || (task.developer?.toString() === userId);
+
+    div.innerHTML = `
+        <div class="flex justify-between items-start">
+            <div>
+                <h3 class="text-xl font-semibold mb-2">${task.title}</h3>
+                <p class="text-gray-600 mb-4">${task.description || 'No description'}</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-sm ${task.is_done ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                ${task.is_done ? 'Completed' : 'Pending'}
+            </span>
+        </div>
+        <div class="text-sm text-gray-500 mb-4">
+            <p>Created: ${new Date(task.created_at).toLocaleString()}</p>
+            ${task.completed_at ? `<p>Completed: ${new Date(task.completed_at).toLocaleString()}</p>` : ''}
+        </div>
+        ${canEdit ? `
+            <div class="flex gap-2">
+                <button onclick="toggleTaskStatus(${task.id}, ${!task.is_done})" 
+                        class="px-3 py-1 text-sm rounded ${task.is_done ? 'bg-yellow-500' : 'bg-green-500'} text-white hover:opacity-90">
+                    ${task.is_done ? 'Mark Pending' : 'Mark Complete'}
+                </button>
+                <button onclick="editTask(${task.id})" 
+                        class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Edit
+                </button>
+                <button onclick="deleteTask(${task.id})" 
+                        class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600">
+                    Delete
+                </button>
+            </div>
+        ` : ''}
+    `;
+    return div;
+}
+
+document.getElementById('create-task').addEventListener('click', () => {
+    const modal = document.getElementById('create-task-modal');
+    modal.classList.remove('hidden');
+});
+
+document.getElementById('cancel-task').addEventListener('click', () => {
+    const modal = document.getElementById('create-task-modal');
+    modal.classList.add('hidden');
+});
+
+document.getElementById('create-task-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const title = document.getElementById('task-title').value.trim();
+    const description = document.getElementById('task-description').value.trim();
+
+    try {
+        const response = await fetch('/api/tasks/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            },
+            body: JSON.stringify({
+                title,
+                description,
+                is_done: false, // Default status
+            })
+        });
+
+        if (response.ok) {
+            alert('Task created successfully!');
+            document.getElementById('create-task-modal').classList.add('hidden');
+            loadTasks(); // Reload the task list
+        } else {
+            throw new Error('Failed to create task');
+        }
+    } catch (error) {
+        console.error('Error creating task:', error);
+        alert('Error creating task. Please try again.');
+    }
+});
+
+
+// Edit task function
+async function editTask(taskId) {
+    try {
+        // Fetch task details from the server
+        const response = await fetch(`/api/tasks/${taskId}/`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch task details');
+        }
+
+        const task = await response.json();
+
+        // Populate modal fields with task data
+        document.getElementById('edit-task-title').value = task.title;
+        document.getElementById('edit-task-description').value = task.description || '';
+        document.getElementById('edit-task-status').value = task.is_done.toString();
+
+        // Show the modal
+        const modal = document.getElementById('edit-task-modal');
+        modal.classList.remove('hidden');
+
+        // Handle form submission
+        const form = document.getElementById('edit-task-form');
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+
+            const updatedTask = {
+                title: form.title.value,
+                description: form.description.value,
+                is_done: form.is_done.value === 'true'
+            };
+
+            try {
+                const updateResponse = await fetch(`/api/tasks/${taskId}/`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+                    },
+                    body: JSON.stringify(updatedTask)
+                });
+
+                if (!updateResponse.ok) {
+                    throw new Error('Failed to update task');
+                }
+
+                // Hide the modal and reload tasks
+                modal.classList.add('hidden');
+                loadTasks();
+            } catch (error) {
+                console.error('Error updating task:', error);
+                alert('Error updating task. Please try again.');
+            }
+        };
+
+        // Handle cancel button
+        document.getElementById('cancel-edit-task').onclick = () => {
+            modal.classList.add('hidden');
+        };
+    } catch (error) {
+        console.error('Error fetching task:', error);
+        alert('Error fetching task details. Please try again.');
+    }
+}
+
+
+// Toggle task status function
+async function toggleTaskStatus(taskId, newStatus) {
+    try {
+        const response = await fetch(`/api/tasks/${taskId}/`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            },
+            body: JSON.stringify({
+                is_done: newStatus
+            })
+        });
+
+        if (response.ok) {
+            loadTasks();
+        } else {
+            throw new Error('Failed to update task status');
+        }
+    } catch (error) {
+        console.error('Error updating task:', error);
+        alert('Error updating task status. Please try again.');
+    }
+}
+
+// Delete task function
+async function deleteTask(taskId) {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+
+    try {
+        const response = await fetch(`/api/tasks/${taskId}/`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+        });
+
+        if (response.ok) {
+            loadTasks();
+        } else {
+            throw new Error('Failed to delete task');
+        }
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        alert('Error deleting task. Please try again.');
+    }
+}
+
+// Logout handler
+document.getElementById('logout').addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+        const response = await fetch('/api/logout/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            },
+            body: JSON.stringify({
+                refresh: localStorage.getItem('refreshToken')
+            })
+        });
+
+        if (response.ok) {
+            localStorage.clear();
+            window.location.href = "{% url 'login' %}";
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+        localStorage.clear();
+        window.location.href = "{% url 'login' %}";
+    }
+});
+</script>
+{% endblock %}

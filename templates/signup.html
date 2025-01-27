@@ -1,0 +1,101 @@
+
+
+
+{% extends "base.html" %}
+
+{% block title %}Signup{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
+  <h2 class="text-xl font-bold text-center">Signup</h2>
+  <form id="signup-form" method="post">
+    {% csrf_token %}
+    <div id="error-message" class="hidden mb-4 p-3 bg-red-100 text-red-700 rounded"></div>
+    
+    <div class="mb-4">
+      <label for="username" class="block text-sm font-medium">Username</label>
+      <input type="text" 
+             id="username" 
+             name="username" 
+             required 
+             class="w-full px-3 py-2 mt-1 border rounded focus:ring-blue-500 focus:border-blue-500">
+    </div>
+
+    <div class="mb-4">
+      <label for="password" class="block text-sm font-medium">Password</label>
+      <input type="password" 
+             id="password" 
+             name="password" 
+             required 
+             class="w-full px-3 py-2 mt-1 border rounded focus:ring-blue-500 focus:border-blue-500">
+    </div>
+
+    <div class="mb-4">
+      <label for="role" class="block text-sm font-medium">Role</label>
+      <select id="role" 
+              name="role" 
+              required 
+              class="w-full px-3 py-2 mt-1 border rounded focus:ring-blue-500 focus:border-blue-500">
+        <option value="lead">Lead</option>
+        <option value="developer">Developer</option>
+      </select>
+    </div>
+
+    <button type="submit" 
+            class="w-full mt-6 px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+      Signup
+    </button>
+  </form>
+  <p class="mt-4 text-center text-sm">
+    Already have an account? <a href="{% url 'login' %}" class="text-blue-500 hover:underline">Login</a>
+  </p>
+</div>
+
+<script>
+document.getElementById('signup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const errorDiv = document.getElementById('error-message');
+    errorDiv.classList.add('hidden');
+    
+    try {
+        const response = await fetch('/api/signup/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                role: document.getElementById('role').value
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Show success message and redirect
+            alert('Signup successful! Please login.');
+            window.location.href = "{% url 'login' %}";
+        } else {
+            // Show error message
+            let errorMessage = '';
+            if (typeof data === 'object') {
+                // Handle different types of error responses
+                errorMessage = Object.entries(data)
+                    .map(([key, value]) => `${key}: ${value.join(', ')}`)
+                    .join('\n');
+            } else {
+                errorMessage = data || 'An error occurred during signup';
+            }
+            errorDiv.textContent = errorMessage;
+            errorDiv.classList.remove('hidden');
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.classList.remove('hidden');
+        console.error('Signup error:', error);
+    }
+});
+</script>
+{% endblock %}
