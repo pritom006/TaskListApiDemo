@@ -113,6 +113,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const username = localStorage.getItem('username');
     const userRole = localStorage.getItem('userRole');
+
+    // Hide/show create task button based on role
+    const createTaskButton = document.getElementById('create-task');
+    if (userRole === 'developer') {
+        createTaskButton.classList.remove('hidden');
+    } else {
+        createTaskButton.classList.add('hidden');
+    }
     
     // Display user info
     document.getElementById('user-info').textContent = `${username} (${userRole})`;
