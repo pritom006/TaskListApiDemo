@@ -11,7 +11,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from django.views import View
+from rest_framework.pagination import PageNumberPagination
 
+
+
+class TaskPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 class SignUpView(APIView):
     permission_classes = [AllowAny]
@@ -100,35 +107,38 @@ class IsDeveloper(BasePermission):
     def has_permission(self, request, view):
         return request.user.role == 'developer'
 
-# class TaskListCreateAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         if request.user.role == 'lead':
-#             tasks = Task.objects.all().order_by('-created_at')  # Leads can view all tasks
-#         else:  # Developer role
-#             tasks = Task.objects.filter(developer=request.user).order_by('-created_at')  # Developers can only view their tasks
-
-#         serializer = TaskSerializer(tasks, many=True)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
-
-#     def post(self, request):
-#         if request.user.role == 'lead':
-#             return Response({"error": "Leads cannot create tasks"}, status=status.HTTP_403_FORBIDDEN)
-
-#         # For developers, link the task to their user account
-#         if request.user.role == 'developer':
-#             request.data['developer'] = request.user.id
-
-#         serializer = TaskSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class TaskListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = TaskPagination
+
+    # def get(self, request):
+    #     # Get query parameters
+    #     developer_id = request.query_params.get('developer', None)
+    #     is_done = request.query_params.get('is_done', None)
+
+    #     # Start with all tasks for lead, or user's tasks for developer
+    #     if request.user.role == 'lead':
+    #         tasks = Task.objects.all()
+    #         # If a specific developer is requested by lead
+    #         if developer_id:
+    #             tasks = tasks.filter(developer_id=developer_id)
+    #     else:  # Developer role
+    #         tasks = Task.objects.filter(developer=request.user)
+
+    #     # Apply status filter if present
+    #     if is_done is not None:
+    #         is_done_bool = is_done.lower() == 'true'
+    #         tasks = tasks.filter(is_done=is_done_bool)
+
+    #     # Order by created_at
+    #     tasks = tasks.order_by('-created_at')
+
+    #     serializer = TaskSerializer(tasks, many=True)
+    #     return Response(serializer.data, status=status.HTTP_200_OK)
+
+    
 
     def get(self, request):
         # Get query parameters
@@ -138,7 +148,6 @@ class TaskListCreateAPIView(APIView):
         # Start with all tasks for lead, or user's tasks for developer
         if request.user.role == 'lead':
             tasks = Task.objects.all()
-            # If a specific developer is requested by lead
             if developer_id:
                 tasks = tasks.filter(developer_id=developer_id)
         else:  # Developer role
@@ -152,8 +161,13 @@ class TaskListCreateAPIView(APIView):
         # Order by created_at
         tasks = tasks.order_by('-created_at')
 
-        serializer = TaskSerializer(tasks, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Initialize paginator
+        paginator = self.pagination_class()
+        paginated_tasks = paginator.paginate_queryset(tasks, request)
+        
+        serializer = TaskSerializer(paginated_tasks, many=True)
+        
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         if request.user.role == 'lead':
@@ -168,6 +182,9 @@ class TaskListCreateAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    
 
 
 
