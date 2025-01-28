@@ -35,7 +35,7 @@
     </div>
 
     <!-- Task list container -->
-    <div id="task-list" class="space-y-4"></div>
+    <div id="task-list" class="space-y-2"></div>
 
     <!-- No tasks message -->
     <div id="no-tasks" class="hidden text-center py-8 text-gray-500">
@@ -190,42 +190,46 @@ async function loadTasks() {
 // Update the createTaskElement function in task.html
 function createTaskElement(task) {
     const div = document.createElement('div');
-    div.className = 'bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow';
+    div.className = 'bg-white p-3 rounded-lg shadow-md hover:shadow-lg transition-shadow';
     
     const userRole = localStorage.getItem('userRole');
     const userId = localStorage.getItem('userId');
     const canEdit = userRole === 'developer' && task.developer?.toString() === userId;
 
+    // Capitalize the first letter of the title
+    const capitalizedTitle = task.title.charAt(0).toUpperCase() + task.title.slice(1);
+    
+    const titleContent = userRole === 'lead' ? 
+        `${capitalizedTitle} <span class="text-gray-500 text-sm">(${task.developer_username || 'Unassigned'})</span>` : 
+        capitalizedTitle;
+
     div.innerHTML = `
-        <div class="flex justify-between items-start">
-            <div class="cursor-pointer" onclick="window.location.href='/task-detail?id=${task.id}'">
-                <h3 class="text-xl font-semibold mb-2 hover:text-blue-600">${task.title}</h3>
-                <p class="text-gray-600 mb-4">${task.description || 'No description'}</p>
+        <div class="flex items-center justify-between gap-4">
+            <div class="cursor-pointer flex-1 flex items-center gap-4" onclick="window.location.href='/task-detail?id=${task.id}'">
+                <h3 class="text-lg font-semibold hover:text-blue-600 truncate">${titleContent}</h3>
+                <p class="text-gray-600 truncate flex-1">${task.description || 'No description'}</p>
+                <p class="text-sm text-gray-500 whitespace-nowrap">Last Updated: ${new Date(task.updated_at).toLocaleString()}</p>
+                <span class="px-3 py-1 rounded-full text-sm whitespace-nowrap ${task.is_done ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                    ${task.is_done ? 'Completed' : 'Pending'}
+                </span>
             </div>
-            <span class="px-3 py-1 rounded-full text-sm ${task.is_done ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
-                ${task.is_done ? 'Completed' : 'Pending'}
-            </span>
+            ${canEdit ? `
+                <div class="flex gap-2 shrink-0">
+                    <button onclick="event.stopPropagation(); toggleTaskStatus(${task.id}, ${!task.is_done})" 
+                            class="px-3 py-1 text-sm rounded ${task.is_done ? 'bg-yellow-500' : 'bg-green-500'} text-white hover:opacity-90">
+                        ${task.is_done ? 'Mark Pending' : 'Mark Complete'}
+                    </button>
+                    <button onclick="event.stopPropagation(); editTask(${task.id})" 
+                            class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Edit
+                    </button>
+                    <button onclick="event.stopPropagation(); deleteTask(${task.id})" 
+                            class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600">
+                        Delete
+                    </button>
+                </div>
+            ` : ''}
         </div>
-        <div class="text-sm text-gray-500 mb-4">
-            <p>Created: ${new Date(task.created_at).toLocaleString()}</p>
-            ${task.completed_at ? `<p>Completed: ${new Date(task.completed_at).toLocaleString()}</p>` : ''}
-        </div>
-        ${canEdit ? `
-            <div class="flex gap-2">
-                <button onclick="event.stopPropagation(); toggleTaskStatus(${task.id}, ${!task.is_done})" 
-                        class="px-3 py-1 text-sm rounded ${task.is_done ? 'bg-yellow-500' : 'bg-green-500'} text-white hover:opacity-90">
-                    ${task.is_done ? 'Mark Pending' : 'Mark Complete'}
-                </button>
-                <button onclick="event.stopPropagation(); editTask(${task.id})" 
-                        class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
-                    Edit
-                </button>
-                <button onclick="event.stopPropagation(); deleteTask(${task.id})" 
-                        class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600">
-                    Delete
-                </button>
-            </div>
-        ` : ''}
     `;
     return div;
 }

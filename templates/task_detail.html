@@ -129,57 +129,50 @@ async function loadTaskDetail() {
         const canEdit = canModifyTask(task);
 
         detailContainer.innerHTML = `
-            <div class="space-y-6">
-                <div class="flex justify-between items-start">
-                    <h1 class="text-2xl font-bold">${task.title}</h1>
-                    <span class="px-3 py-1 rounded-full text-sm ${
-                        task.is_done 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                    }">
-                        ${task.is_done ? 'Completed' : 'Pending'}
-                    </span>
-                </div>
-
-                <div class="text-gray-600">
-                    <h3 class="text-lg font-semibold mb-2">Description</h3>
-                    <p class="whitespace-pre-wrap">${task.description || 'No description provided'}</p>
-                </div>
-
-                <div class="text-sm text-gray-500 space-y-1">
-                    <p><strong>Created:</strong> ${formatDate(task.created_at)}</p>
-                    ${task.completed_at 
-                        ? `<p><strong>Completed:</strong> ${formatDate(task.completed_at)}</p>` 
-                        : ''
-                    }
-                    ${task.developer_name 
-                        ? `<p><strong>Assigned to:</strong> ${task.developer_name}</p>` 
-                        : ''
-                    }
-                </div>
-
-                ${canEdit ? `
-                    <div class="flex gap-2 mt-6">
-                        <button onclick="toggleTaskStatus(${task.id}, ${!task.is_done})" 
-                                class="px-4 py-2 rounded ${
-                                    task.is_done 
-                                        ? 'bg-yellow-500' 
-                                        : 'bg-green-500'
-                                } text-white hover:opacity-90">
-                            ${task.is_done ? 'Mark Pending' : 'Mark Complete'}
-                        </button>
-                        <button onclick="editTask(${task.id})" 
-                                class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                            Edit
-                        </button>
-                        <button onclick="deleteTask(${task.id})" 
-                                class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
-                            Delete
-                        </button>
-                    </div>
-                ` : ''}
+        <div class="space-y-6">
+            <div class="flex justify-between items-start">
+                <h1 class="text-2xl font-bold">${task.title}</h1>
+                <span class="px-3 py-1 rounded-full text-sm ${
+                    task.is_done 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                }">
+                    ${task.is_done ? 'Completed' : 'Pending'}
+                </span>
             </div>
-        `;
+
+            <div class="text-gray-600">
+                <h3 class="text-lg font-semibold mb-2">Description</h3>
+                <p class="whitespace-pre-wrap">${task.description || 'No description provided'}</p>
+            </div>
+
+            ${task.developer_name 
+                ? `<p class="text-sm text-gray-500"><strong>Assigned to:</strong> ${task.developer_name}</p>` 
+                : ''
+            }
+
+            ${canEdit ? `
+                <div class="flex gap-2 mt-6">
+                    <button onclick="toggleTaskStatus(${task.id}, ${!task.is_done})" 
+                            class="px-4 py-2 rounded ${
+                                task.is_done 
+                                    ? 'bg-yellow-500' 
+                                    : 'bg-green-500'
+                            } text-white hover:opacity-90">
+                        ${task.is_done ? 'Mark Pending' : 'Mark Complete'}
+                    </button>
+                    <button onclick="editTask(${task.id})" 
+                            class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Edit
+                    </button>
+                    <button onclick="deleteTask(${task.id})" 
+                            class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                        Delete
+                    </button>
+                </div>
+            ` : ''}
+        </div>
+    `;
 
     } catch (error) {
         console.error('Error loading task details:', error);

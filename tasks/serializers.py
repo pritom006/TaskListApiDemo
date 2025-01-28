@@ -19,6 +19,7 @@ class TaskSerializer(serializers.ModelSerializer):
     created_at = serializers.SerializerMethodField()
     updated_at = serializers.SerializerMethodField()
     completed_at = serializers.SerializerMethodField()
+    developer_username = serializers.SerializerMethodField()
 
     def get_created_at(self, obj):
         return localtime(obj.created_at).strftime('%Y-%m-%d %H:%M:%S')
@@ -29,6 +30,11 @@ class TaskSerializer(serializers.ModelSerializer):
     def get_completed_at(self, obj):
         if obj.completed_at:
             return localtime(obj.completed_at).strftime('%Y-%m-%d %H:%M:%S')
+        return None
+    
+    def get_developer_username(self, obj):  # Add this method
+        if obj.developer:
+            return obj.developer.username
         return None
 
     class Meta:
