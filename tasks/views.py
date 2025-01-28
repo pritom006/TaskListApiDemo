@@ -111,34 +111,7 @@ class IsDeveloper(BasePermission):
 
 class TaskListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
-    pagination_class = TaskPagination
-
-    # def get(self, request):
-    #     # Get query parameters
-    #     developer_id = request.query_params.get('developer', None)
-    #     is_done = request.query_params.get('is_done', None)
-
-    #     # Start with all tasks for lead, or user's tasks for developer
-    #     if request.user.role == 'lead':
-    #         tasks = Task.objects.all()
-    #         # If a specific developer is requested by lead
-    #         if developer_id:
-    #             tasks = tasks.filter(developer_id=developer_id)
-    #     else:  # Developer role
-    #         tasks = Task.objects.filter(developer=request.user)
-
-    #     # Apply status filter if present
-    #     if is_done is not None:
-    #         is_done_bool = is_done.lower() == 'true'
-    #         tasks = tasks.filter(is_done=is_done_bool)
-
-    #     # Order by created_at
-    #     tasks = tasks.order_by('-created_at')
-
-    #     serializer = TaskSerializer(tasks, many=True)
-    #     return Response(serializer.data, status=status.HTTP_200_OK)
-
-    
+    pagination_class = TaskPagination    
 
     def get(self, request):
         # Get query parameters
