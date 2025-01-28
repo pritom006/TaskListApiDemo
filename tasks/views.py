@@ -44,9 +44,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         return response
 
 
-# class HomeView(View):
-#     def get(self, request):
-#         return render(request, 'login.html')
+
 
 def login_view(request):
     return render(request, 'login.html')
@@ -87,20 +85,25 @@ class IsDeveloper(BasePermission):
         return request.user.role == 'developer'
 
 class TaskListCreateAPIView(APIView):
-    permission_classes = [IsLead | IsDeveloper]  # Both leads and developers can access
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         if request.user.role == 'lead':
-            tasks = Task.objects.all()
-        else:
-            tasks = Task.objects.filter(developer=request.user)
+            tasks = Task.objects.all().order_by('-created_at')  # Leads can view all tasks
+        else:  # Developer role
+            tasks = Task.objects.filter(developer=request.user).order_by('-created_at')  # Developers can only view their tasks
 
         serializer = TaskSerializer(tasks, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
+        if request.user.role == 'lead':
+            return Response({"error": "Leads cannot create tasks"}, status=status.HTTP_403_FORBIDDEN)
+
+        # For developers, link the task to their user account
         if request.user.role == 'developer':
-            request.data['developer'] = request.user.id  # Ensure developer is linked to task
+            request.data['developer'] = request.user.id
+
         serializer = TaskSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -109,7 +112,7 @@ class TaskListCreateAPIView(APIView):
 
 
 class TaskDetailAPIView(APIView):
-    permission_classes = [IsLead | IsDeveloper]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
         try:
@@ -125,6 +128,8 @@ class TaskDetailAPIView(APIView):
     def put(self, request, pk):
         try:
             task = Task.objects.get(pk=pk)
+            if request.user.role == 'lead':
+                return Response({"error": "Leads cannot update tasks"}, status=status.HTTP_403_FORBIDDEN)
             if request.user.role == 'developer' and task.developer != request.user:
                 return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         except Task.DoesNotExist:
@@ -139,6 +144,8 @@ class TaskDetailAPIView(APIView):
     def delete(self, request, pk):
         try:
             task = Task.objects.get(pk=pk)
+            if request.user.role == 'lead':
+                return Response({"error": "Leads cannot delete tasks"}, status=status.HTTP_403_FORBIDDEN)
             if request.user.role == 'developer' and task.developer != request.user:
                 return Response({"error": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
         except Task.DoesNotExist:

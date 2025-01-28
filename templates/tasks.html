@@ -41,6 +41,8 @@
     <div id="no-tasks" class="hidden text-center py-8 text-gray-500">
         No tasks found.
     </div>
+
+    <!-- Create Task Modal - Only shown for developers -->
     <div id="create-task-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
         <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
             <h3 class="text-xl font-bold mb-4">Create Task</h3>
@@ -64,7 +66,8 @@
             </form>
         </div>
     </div>
-    <!-- Edit Task Modal -->
+
+    <!-- Edit Task Modal - Only shown for developers editing their own tasks -->
     <div id="edit-task-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
         <div class="bg-white p-6 rounded-lg shadow-lg w-96">
             <h2 class="text-xl font-bold mb-4">Edit Task</h2>
@@ -91,10 +94,12 @@
             </form>
         </div>
     </div>
-
 </div>
 
+
+
 <script>
+
 // Check authentication on page load
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('accessToken');
@@ -108,6 +113,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const role = localStorage.getItem('userRole');
     document.getElementById('user-info').textContent = `${username} (${role})`;
 
+    // Show/hide create task button based on role
+    const createTaskButton = document.getElementById('create-task');
+    if (role === 'developer') {
+        createTaskButton.classList.remove('hidden');
+    } else {
+        createTaskButton.classList.add('hidden');
+    }
+
     // Load tasks
     loadTasks();
 
@@ -115,18 +128,28 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('status-filter').addEventListener('change', loadTasks);
 });
 
+
+
 // Load tasks function
 async function loadTasks() {
     const loading = document.getElementById('loading');
     const taskList = document.getElementById('task-list');
     const noTasks = document.getElementById('no-tasks');
+    const userRole = localStorage.getItem('userRole');
+    const userId = localStorage.getItem('userId');
     
     loading.classList.remove('hidden');
     taskList.innerHTML = '';
     noTasks.classList.add('hidden');
 
     try {
-        const response = await fetch('/api/tasks/', {
+        let url = '/api/tasks/';
+        // If user is a developer, only fetch their tasks
+        if (userRole === 'developer') {
+            url += `?developer=${userId}`;
+        }
+
+        const response = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
             }
@@ -163,19 +186,20 @@ async function loadTasks() {
     }
 }
 
-// Create task element function
+
+// Update the createTaskElement function in task.html
 function createTaskElement(task) {
     const div = document.createElement('div');
     div.className = 'bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow';
     
     const userRole = localStorage.getItem('userRole');
     const userId = localStorage.getItem('userId');
-    const canEdit = userRole === 'lead' || (task.developer?.toString() === userId);
+    const canEdit = userRole === 'developer' && task.developer?.toString() === userId;
 
     div.innerHTML = `
         <div class="flex justify-between items-start">
-            <div>
-                <h3 class="text-xl font-semibold mb-2">${task.title}</h3>
+            <div class="cursor-pointer" onclick="window.location.href='/task-detail?id=${task.id}'">
+                <h3 class="text-xl font-semibold mb-2 hover:text-blue-600">${task.title}</h3>
                 <p class="text-gray-600 mb-4">${task.description || 'No description'}</p>
             </div>
             <span class="px-3 py-1 rounded-full text-sm ${task.is_done ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
@@ -188,15 +212,15 @@ function createTaskElement(task) {
         </div>
         ${canEdit ? `
             <div class="flex gap-2">
-                <button onclick="toggleTaskStatus(${task.id}, ${!task.is_done})" 
+                <button onclick="event.stopPropagation(); toggleTaskStatus(${task.id}, ${!task.is_done})" 
                         class="px-3 py-1 text-sm rounded ${task.is_done ? 'bg-yellow-500' : 'bg-green-500'} text-white hover:opacity-90">
                     ${task.is_done ? 'Mark Pending' : 'Mark Complete'}
                 </button>
-                <button onclick="editTask(${task.id})" 
+                <button onclick="event.stopPropagation(); editTask(${task.id})" 
                         class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
                     Edit
                 </button>
-                <button onclick="deleteTask(${task.id})" 
+                <button onclick="event.stopPropagation(); deleteTask(${task.id})" 
                         class="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600">
                     Delete
                 </button>
@@ -206,7 +230,12 @@ function createTaskElement(task) {
     return div;
 }
 
+// Create task handlers
 document.getElementById('create-task').addEventListener('click', () => {
+    if (localStorage.getItem('userRole') !== 'developer') {
+        alert('Only developers can create tasks');
+        return;
+    }
     const modal = document.getElementById('create-task-modal');
     modal.classList.remove('hidden');
 });
@@ -218,6 +247,11 @@ document.getElementById('cancel-task').addEventListener('click', () => {
 
 document.getElementById('create-task-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    if (localStorage.getItem('userRole') !== 'developer') {
+        alert('Only developers can create tasks');
+        return;
+    }
 
     const title = document.getElementById('task-title').value.trim();
     const description = document.getElementById('task-description').value.trim();
@@ -232,14 +266,15 @@ document.getElementById('create-task-form').addEventListener('submit', async (e)
             body: JSON.stringify({
                 title,
                 description,
-                is_done: false, // Default status
+                is_done: false,
+                developer: localStorage.getItem('userId')
             })
         });
 
         if (response.ok) {
-            alert('Task created successfully!');
             document.getElementById('create-task-modal').classList.add('hidden');
-            loadTasks(); // Reload the task list
+            document.getElementById('create-task-form').reset();
+            loadTasks();
         } else {
             throw new Error('Failed to create task');
         }
@@ -249,11 +284,12 @@ document.getElementById('create-task-form').addEventListener('submit', async (e)
     }
 });
 
-
 // Edit task function
 async function editTask(taskId) {
+    const userRole = localStorage.getItem('userRole');
+    const userId = localStorage.getItem('userId');
+
     try {
-        // Fetch task details from the server
         const response = await fetch(`/api/tasks/${taskId}/`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
@@ -266,12 +302,18 @@ async function editTask(taskId) {
 
         const task = await response.json();
 
-        // Populate modal fields with task data
+        // Check if user has permission to edit
+        if (userRole !== 'developer' || task.developer?.toString() !== userId) {
+            alert('You do not have permission to edit this task');
+            return;
+        }
+
+        // Populate modal fields
         document.getElementById('edit-task-title').value = task.title;
         document.getElementById('edit-task-description').value = task.description || '';
         document.getElementById('edit-task-status').value = task.is_done.toString();
 
-        // Show the modal
+        // Show modal
         const modal = document.getElementById('edit-task-modal');
         modal.classList.remove('hidden');
 
@@ -283,7 +325,8 @@ async function editTask(taskId) {
             const updatedTask = {
                 title: form.title.value,
                 description: form.description.value,
-                is_done: form.is_done.value === 'true'
+                is_done: form.is_done.value === 'true',
+                developer: userId
             };
 
             try {
@@ -300,18 +343,12 @@ async function editTask(taskId) {
                     throw new Error('Failed to update task');
                 }
 
-                // Hide the modal and reload tasks
                 modal.classList.add('hidden');
                 loadTasks();
             } catch (error) {
                 console.error('Error updating task:', error);
                 alert('Error updating task. Please try again.');
             }
-        };
-
-        // Handle cancel button
-        document.getElementById('cancel-edit-task').onclick = () => {
-            modal.classList.add('hidden');
         };
     } catch (error) {
         console.error('Error fetching task:', error);
@@ -320,24 +357,44 @@ async function editTask(taskId) {
 }
 
 
-// Toggle task status function
 async function toggleTaskStatus(taskId, newStatus) {
     try {
-        const response = await fetch(`/api/tasks/${taskId}/`, {
+        // First, get the current task data
+        const getResponse = await fetch(`/api/tasks/${taskId}/`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+        });
+
+        if (!getResponse.ok) {
+            throw new Error('Failed to fetch task details');
+        }
+
+        const currentTask = await getResponse.json();
+
+        // Prepare the update with all required fields
+        const updateData = {
+            title: currentTask.title,
+            description: currentTask.description,
+            is_done: newStatus,
+            developer: currentTask.developer
+        };
+
+        // Send the update request
+        const updateResponse = await fetch(`/api/tasks/${taskId}/`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
             },
-            body: JSON.stringify({
-                is_done: newStatus
-            })
+            body: JSON.stringify(updateData)
         });
 
-        if (response.ok) {
+        if (updateResponse.ok) {
             loadTasks();
         } else {
-            throw new Error('Failed to update task status');
+            const errorData = await updateResponse.json();
+            throw new Error(errorData.detail || 'Failed to update task status');
         }
     } catch (error) {
         console.error('Error updating task:', error);
@@ -393,5 +450,6 @@ document.getElementById('logout').addEventListener('click', async (e) => {
         window.location.href = "{% url 'login' %}";
     }
 });
+
 </script>
 {% endblock %}
