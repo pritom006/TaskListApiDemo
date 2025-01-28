@@ -27,6 +27,9 @@
             <option value="pending">Pending</option>
             <option value="completed">Completed</option>
         </select>
+        <select id="user-filter" class="px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500 ${localStorage.getItem('userRole') !== 'lead' ? 'hidden' : ''}">
+            <option value="all">All Developers</option>
+        </select>
     </div>
 
     <!-- Loading indicator -->
@@ -99,38 +102,69 @@
 
 
 <script>
-
-// Check authentication on page load
-document.addEventListener('DOMContentLoaded', () => {
+// Check authentication and initialize page on load
+document.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
         window.location.href = "{% url 'login' %}";
         return;
     }
 
-    // Display user info
     const username = localStorage.getItem('username');
-    const role = localStorage.getItem('userRole');
-    document.getElementById('user-info').textContent = `${username} (${role})`;
-
-    // Show/hide create task button based on role
-    const createTaskButton = document.getElementById('create-task');
-    if (role === 'developer') {
-        createTaskButton.classList.remove('hidden');
+    const userRole = localStorage.getItem('userRole');
+    
+    // Display user info
+    document.getElementById('user-info').textContent = `${username} (${userRole})`;
+    
+    // Show/hide and setup user filter for lead
+    const userFilter = document.getElementById('user-filter');
+    if (userRole === 'lead') {
+        userFilter.classList.remove('hidden');
+        // Wait for users to load before setting up the change event
+        await loadUsers();
+        userFilter.addEventListener('change', loadTasks);
     } else {
-        createTaskButton.classList.add('hidden');
+        userFilter.classList.add('hidden');
     }
-
-    // Load tasks
-    loadTasks();
-
-    // Add event listeners
+    
+    // Setup status filter
     document.getElementById('status-filter').addEventListener('change', loadTasks);
+    
+    // Initial load of tasks
+    await loadTasks();
 });
 
 
+async function loadUsers() {
+    if (localStorage.getItem('userRole') !== 'lead') return;
+    
+    try {
+        const response = await fetch('/api/users/?role=developer', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+        });
 
-// Load tasks function
+        if (!response.ok) throw new Error('Failed to fetch users');
+
+        const users = await response.json();
+        const userFilter = document.getElementById('user-filter');
+        
+        userFilter.innerHTML = `
+            <option value="">All Developers</option>
+            ${users.map(user => `
+                <option value="${user.id}">${user.username}</option>
+            `).join('')}
+        `;
+    } catch (error) {
+        console.error('Error loading users:', error);
+        alert('Error loading users. Please try again.');
+        throw error; // Propagate the error
+    }
+}
+
+
+// Modify the loadTasks function to include user filtering
 async function loadTasks() {
     const loading = document.getElementById('loading');
     const taskList = document.getElementById('task-list');
@@ -144,9 +178,30 @@ async function loadTasks() {
 
     try {
         let url = '/api/tasks/';
-        // If user is a developer, only fetch their tasks
+        const params = new URLSearchParams();
+
+        // Handle user filtering
         if (userRole === 'developer') {
-            url += `?developer=${userId}`;
+            params.append('developer', userId);
+        } else if (userRole === 'lead') {
+            const selectedDeveloper = document.getElementById('user-filter').value;
+            if (selectedDeveloper) {
+                params.append('developer', selectedDeveloper);
+            }
+            // Note: If no developer is selected, it will show all tasks
+        }
+
+        // Handle status filtering
+        const statusFilter = document.getElementById('status-filter').value;
+        if (statusFilter === 'completed') {
+            params.append('is_done', 'true');
+        } else if (statusFilter === 'pending') {
+            params.append('is_done', 'false');
+        }
+
+        // Construct final URL with params
+        if (params.toString()) {
+            url += `?${params.toString()}`;
         }
 
         const response = await fetch(url, {
@@ -160,23 +215,15 @@ async function loadTasks() {
                 window.location.href = "{% url 'login' %}";
                 return;
             }
-            throw new Error('Failed to fetch tasks');
+            throw new Error(`Failed to fetch tasks: ${response.status}`);
         }
 
         const tasks = await response.json();
-        const statusFilter = document.getElementById('status-filter').value;
-
-        const filteredTasks = tasks.filter(task => {
-            if (statusFilter === 'all') return true;
-            if (statusFilter === 'completed') return task.is_done;
-            if (statusFilter === 'pending') return !task.is_done;
-            return true;
-        });
-
-        if (filteredTasks.length === 0) {
+        
+        if (tasks.length === 0) {
             noTasks.classList.remove('hidden');
         } else {
-            filteredTasks.forEach(task => taskList.appendChild(createTaskElement(task)));
+            tasks.forEach(task => taskList.appendChild(createTaskElement(task)));
         }
     } catch (error) {
         console.error('Error loading tasks:', error);
@@ -185,7 +232,6 @@ async function loadTasks() {
         loading.classList.add('hidden');
     }
 }
-
 
 // Update the createTaskElement function in task.html
 function createTaskElement(task) {
