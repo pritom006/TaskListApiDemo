@@ -32,7 +32,7 @@ class TaskSerializer(serializers.ModelSerializer):
             return localtime(obj.completed_at).strftime('%Y-%m-%d %H:%M:%S')
         return None
     
-    def get_developer_username(self, obj):  # Add this method
+    def get_developer_username(self, obj):  
         if obj.developer:
             return obj.developer.username
         return None

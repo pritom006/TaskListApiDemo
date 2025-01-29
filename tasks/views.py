@@ -28,7 +28,6 @@ class SignUpView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             if user:
-                # Create token and return it along with user data
                 return Response(
                     {
                         "user": UserSerializer(user).data,
@@ -49,7 +48,6 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 'role': user.role
             }
         return response
-
 
 
 
@@ -114,7 +112,6 @@ class TaskListCreateAPIView(APIView):
     pagination_class = TaskPagination    
 
     def get(self, request):
-        # Get query parameters
         developer_id = request.query_params.get('developer', None)
         is_done = request.query_params.get('is_done', None)
 
@@ -123,7 +120,7 @@ class TaskListCreateAPIView(APIView):
             tasks = Task.objects.all()
             if developer_id:
                 tasks = tasks.filter(developer_id=developer_id)
-        else:  # Developer role
+        else:  
             tasks = Task.objects.filter(developer=request.user)
 
         # Apply status filter if present
@@ -131,7 +128,6 @@ class TaskListCreateAPIView(APIView):
             is_done_bool = is_done.lower() == 'true'
             tasks = tasks.filter(is_done=is_done_bool)
 
-        # Order by created_at
         tasks = tasks.order_by('-created_at')
 
         # Initialize paginator
@@ -158,9 +154,6 @@ class TaskListCreateAPIView(APIView):
     
     
     
-
-
-
 class TaskDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
