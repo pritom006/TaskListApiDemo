@@ -7,3 +7,4 @@ djangorestframework==3.15.2
 timedelta==2020.12.3
 djangorestframework-simplejwt==5.4.0
 pyjwt==2.10.1
+coverage
