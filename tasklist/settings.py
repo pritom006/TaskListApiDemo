@@ -25,6 +25,7 @@ config = Config(RepositoryEnv('.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('DJANGO_SECRET_KEY')
+#SECRET_KEY='django-insecure-e!9vi@wz4blmwj6=t&8(v4%hj)3m&^1&y@=gbisv+^23_*1q-e'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
