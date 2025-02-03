@@ -103,6 +103,18 @@ class TestLogoutView(APITestCase):
         response = self.client.post(self.logout_url, self.refresh_token, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    @patch('tasks.views.RefreshToken')
+    def test_logout_with_invalid_token(self, mock_refresh_token):
+        self.client.force_authenticate(user=MockUser())
+        
+        # Make RefreshToken raise an exception when initialized
+        mock_refresh_token.side_effect = Exception("Invalid token")
+
+        response = self.client.post(self.logout_url, self.refresh_token, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data, {"error": "Invalid token"})
+        
 class TestTaskListCreateAPIView(APITestCase):
     def setUp(self):
         self.client = APIClient()
