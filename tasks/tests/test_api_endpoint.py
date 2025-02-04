@@ -9,6 +9,10 @@ from ..serializers import TaskSerializer, UserSerializer
 import json
 from rest_framework.response import Response
 from tasks.serializers import TaskSerializer
+from rest_framework.test import APIRequestFactory
+from tasks.permissions import IsLead, IsDeveloper
+
+
 User = get_user_model()
 
 class MockUser:
@@ -45,7 +49,7 @@ class TestSignUpView(APITestCase):
     @patch('tasks.serializers.UserSerializer.errors', new_callable=PropertyMock)
     def test_invalid_signup(self, mock_errors, mock_is_valid):
         mock_is_valid.return_value = False
-        mock_errors.return_value = {"username": ["This field is required."]}  # Mock validation errors
+        mock_errors.return_value = {"username": ["This field is required."]} 
 
         response = self.client.post(self.signup_url, {}, format='json')
 
@@ -61,8 +65,8 @@ class TestCustomTokenObtainPairView(APITestCase):
             "password": "testpass123"
         }
 
-    @patch('tasks.views.TokenObtainPairView.post')
-    @patch('tasks.views.get_user_model')
+    @patch('tasks.api_views.TokenObtainPairView.post')
+    @patch('tasks.api_views.get_user_model')
     def test_successful_login(self, mock_get_user_model, mock_token_view_post):
         mock_response_data = {
             'access': 'dummy_token',
@@ -87,7 +91,7 @@ class TestLogoutView(APITestCase):
         self.logout_url = reverse('api-logout')
         self.refresh_token = {"refresh": "dummy_refresh_token"}
 
-    @patch('tasks.views.RefreshToken')
+    @patch('tasks.api_views.RefreshToken')
     def test_successful_logout(self, mock_refresh_token):
         self.client.force_authenticate(user=MockUser())
         
@@ -103,7 +107,7 @@ class TestLogoutView(APITestCase):
         response = self.client.post(self.logout_url, self.refresh_token, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    @patch('tasks.views.RefreshToken')
+    @patch('tasks.api_views.RefreshToken')
     def test_logout_with_invalid_token(self, mock_refresh_token):
         self.client.force_authenticate(user=MockUser())
         
@@ -124,7 +128,7 @@ class TestTaskListCreateAPIView(APITestCase):
             "description": "Test Description"
         }
 
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     @patch('tasks.models.Task.objects')
     def test_get_tasks_as_lead(self, mock_task_objects, mock_serializer_class):
         lead_user = MockUser(role="lead")
@@ -154,7 +158,7 @@ class TestTaskListCreateAPIView(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         mock_task_objects.all.assert_called_once()
 
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     @patch('tasks.models.Task.objects')
     def test_get_tasks_as_developer(self, mock_task_objects, mock_serializer_class):
         dev_user = MockUser(role="developer")
@@ -181,7 +185,7 @@ class TestTaskListCreateAPIView(APITestCase):
         mock_task_objects.filter.assert_called_once_with(developer=dev_user)
 
 
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     def test_create_task_as_developer(self, mock_serializer_class):
         dev_user = MockUser(role="developer")
         self.client.force_authenticate(user=dev_user)
@@ -201,7 +205,7 @@ class TestTaskListCreateAPIView(APITestCase):
         mock_serializer.is_valid.assert_called_once()
         mock_serializer.save.assert_called_once()
     
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     def test_create_task_as_lead_forbidden(self, mock_serializer_class):
         lead_user = MockUser(role="lead")
         self.client.force_authenticate(user=lead_user)
@@ -211,7 +215,7 @@ class TestTaskListCreateAPIView(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.data, {"error": "Leads cannot create tasks"})
     
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     @patch('tasks.models.Task.objects')
     def test_get_task_filter_by_status(self, mock_task_objects, mock_serializer_class):
         lead_user = MockUser(role="lead")
@@ -234,7 +238,7 @@ class TestTaskListCreateAPIView(APITestCase):
         mock_task_objects.all.assert_called_once()
         mock_queryset.filter.assert_called_with(is_done=True)
     
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     @patch('tasks.models.Task.objects')
     def test_pagination(self, mock_task_objects, mock_serializer_class):
         lead_user = MockUser(role="lead")
@@ -255,7 +259,7 @@ class TestTaskListCreateAPIView(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 10)
 
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     @patch('tasks.models.Task.objects')
     def test_get_task_filter_by_developer(self, mock_task_objects, mock_serializer_class):
         lead_user = MockUser(role="lead")
@@ -278,7 +282,7 @@ class TestTaskListCreateAPIView(APITestCase):
         mock_task_objects.all.assert_called_once()
         mock_queryset.filter.assert_called_with(developer_id='5')
 
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     @patch('tasks.models.Task.objects')
     def test_get_task_filter_by_lead(self, mock_task_objects, mock_serializer_class):
         lead_user = MockUser(role="lead")
@@ -326,7 +330,7 @@ class TestTaskDetailAPIView(APITestCase):
         mock_task.delete.assert_not_called()
         self.assertEqual(response.data, {"error": "Leads cannot delete tasks"})
 
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     @patch('tasks.models.Task.objects')
     def test_update_task_as_developer(self, mock_task_objects, mock_serializer_class):
         dev_user = MockUser(role="developer")
@@ -392,7 +396,7 @@ class TestTaskDetailAPIView(APITestCase):
         mock_task_objects.get.assert_called_once_with(pk=self.task_id)
     
 
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     @patch('tasks.models.Task.objects')
     def test_get_task_as_lead(self, mock_task_objects, mock_serializer_class):
         lead_user = MockUser(role="lead")
@@ -426,7 +430,7 @@ class TestTaskDetailAPIView(APITestCase):
         self.assertEqual(response.data['id'], 1)
 
 
-    @patch('tasks.views.TaskSerializer')
+    @patch('tasks.api_views.TaskSerializer')
     @patch('tasks.models.Task.objects')
     def test_update_others_task_as_developer(self, mock_task_objects, mock_serializer_class):
         dev_user = MockUser(role="developer")
@@ -518,7 +522,7 @@ class TestUserListAPIView(TestCase):
         response = self.client.get(self.users_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    @patch('tasks.views.UserSerializer')
+    @patch('tasks.api_views.UserSerializer')
     @patch('tasks.models.User.objects') 
     def test_get_all_users(self, mock_user_objects, mock_serializer_class):
         """Test getting all users without role filter"""
@@ -546,7 +550,7 @@ class TestUserListAPIView(TestCase):
         mock_user_objects.all.assert_called_once()
         mock_serializer_class.assert_called_once_with(mock_users, many=True)
 
-    @patch('tasks.views.UserSerializer')
+    @patch('tasks.api_views.UserSerializer')
     @patch('tasks.models.User.objects')  
     def test_get_users_filtered_by_role(self, mock_user_objects, mock_serializer_class):
         """Test getting users filtered by role"""
@@ -572,7 +576,7 @@ class TestUserListAPIView(TestCase):
         mock_serializer_class.assert_called_once_with(mock_users, many=True)
 
 
-    @patch('tasks.views.UserSerializer')
+    @patch('tasks.api_views.UserSerializer')
     @patch('tasks.models.User.objects')  
     def test_get_users_empty_result(self, mock_user_objects, mock_serializer_class):
         """Test getting users with filter that returns no results"""
@@ -607,3 +611,5 @@ class TestUserListAPIView(TestCase):
 
         response = self.client.delete(self.users_url)
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+

@@ -1,13 +1,9 @@
 from django.urls import path
-from .views import TaskListCreateAPIView, TaskDetailAPIView, SignUpView, CustomTokenObtainPairView, LogoutView, UserListAPIView
-from rest_framework_simplejwt import views as jwt_views
+from .views import login_view, signup_view, tasks_view, task_detail_view
 
 urlpatterns = [
-    path('signup/', SignUpView.as_view(), name='api-signup'),
-    path('login/', CustomTokenObtainPairView.as_view(), name='api-login'),
-    path('token/refresh/', jwt_views.TokenRefreshView.as_view(), name='api-token_refresh'),
-    path('logout/', LogoutView.as_view(), name='api-logout'),
-    path('users/', UserListAPIView.as_view(), name='api-user-list'),
-    path('tasks/', TaskListCreateAPIView.as_view(), name='api-task-list-create'),
-    path('tasks/<int:pk>/', TaskDetailAPIView.as_view(), name='api-task-detail'),
+    path('', login_view, name='login'),  # Root URL shows login page
+    path('signup/', signup_view, name='signup'),
+    path('tasks/', tasks_view, name='tasks'),
+    path('task-detail/', task_detail_view, name='task-detail'),
 ]
